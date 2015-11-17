@@ -1,29 +1,43 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include <sys/types.h>
 
-const char *programa[] = {
-	"gedit",
-	"vim",
-	NULL
-};
+sig_atomic_t acabado = 0;
 
-int mostrar_menu() {
-	int opcion;
+void cerrar(int signum){
+	acabado = 1;
+}
 
-	system("clear");
-	printf("Opciones:\n");
-	for (int op=0; programa[op]; op++)
-		printf("\n%i .- %s\n", op + 1, programa[op]);
-	printf("\n ¿Con qué programa quiere editar el archivo de texto?\n");
-	scanf("%i", &opcion);
+void spawn(const char *command, const char *parameter) {
+	pid_t child = fork();
 
-	return opcion - 1;
+	if(!child) {
+		execl(command,command,parameter,NULL);
+		fprintf(stderr, "Programa hijo no encontrado.\n" );
+	}
 }
 
 int main(int argc, char *argv[]) {
 	int opcion;
-	opcion = mostrar_menu();
-	printf("\nSe ha arrancado %s\n\n", programa[opcion]);
-	system(programa[opcion]);
+	const char *child = "./editorhijo";
+	const char *text_file = "file.txt";
+	int child_status;
+
+	struct sigaction sa;
+	sa.sa_handler = cerrar;
+
+	sigaction(SIGCHLD, &sa, NULL);
+
+	spawn(child, text_file);
+
+	wait(&child_status);
+
+	system("cat file.txt");
+	system("rm file.txt");
+
+
 	return EXIT_SUCCESS;
 }
